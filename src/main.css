@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* Light Theme */
+:root {
+  --color-primary: #ffde59;
+  --color-secondary: #222222;
+
+  --color-primary-hover: #ffd21d;
+  --color-secondary-hover: #5f5f5f;
+
+  --color-bg: #ffffff;
+  --color-text: #222222;
+  --color-text-alt: #ffffff;
+
+  --color-hyperlink: #422dff;
+  --color-hyperlink-hover: #9b90ff;
+}
+
+/* Dark Theme */
+:root[data-theme="dark"] {
+  --color-primary: #222222;
+  --color-secondary: #ffde59;
+
+  --color-primary-hover: #949494;
+  --color-secondary-hover: #fff1b7;
+
+  --color-bg: #111111;
+  --color-text: #ffffff;
+  --color-text-alt: #111111;
+}
+
+html {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.input {
+  @apply w-full px-4 py-3 rounded-xl border border-(--color-secondary)/40 bg-transparent text-(--color-text) placeholder:text-(--color-text)/40 focus:outline-none focus:ring-2 focus:ring-(--color-secondary) transition-all;
+}
+
+.btn-primary {
+  @apply py-3 rounded-xl bg-(--color-secondary) text-(--color-text-alt) font-bold text-lg hover:bg-(--color-secondary-hover) transition-all hover:scale-[1.02] hover:cursor-pointer;
+}
+
+.btn-secondary {
+  @apply py-3 px-4 rounded-xl border border-(--color-secondary)/40 hover:bg-(--color-secondary)/10 transition hover:cursor-pointer;
+}
