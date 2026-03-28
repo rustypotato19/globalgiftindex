@@ -18,7 +18,7 @@ export default function Header() {
   }
 
   return (
-    <div className="flex flex-row w-full h-fit bg-(--color-primary) py-4 justify-between items-center shadow-md">
+    <div className="flex flex-row w-full h-fit bg-(--color-primary) py-4 justify-between items-center shadow-md z-50">
       <div className="w-3/4 flex justify-start items-center">
         <img
           src={

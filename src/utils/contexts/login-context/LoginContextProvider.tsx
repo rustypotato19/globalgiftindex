@@ -9,6 +9,7 @@ type Props = {
 export default function LoginContextProvider({ children }: Props) {
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [loginOrSignup, setLoginOrSignup] = useState<loginType>("login");
+  const [user, setUser] = useState<string>("");
 
   return (
     <LoginContext.Provider
@@ -17,6 +18,8 @@ export default function LoginContextProvider({ children }: Props) {
         setShowLoginModal,
         loginOrSignup,
         setLoginOrSignup,
+        user,
+        setUser,
       }}
     >
       {children}

@@ -17,8 +17,6 @@ createRoot(document.getElementById("root")!).render(
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Landing />} />
-            {/* <Route path="login" element={<LoginSignup loginType="login" />} />
-          <Route path="signup" element={<LoginSignup loginType="signup" />} /> */}
 
             <Route path="*" element={<MyError ErrorCode={404} />} />
           </Routes>

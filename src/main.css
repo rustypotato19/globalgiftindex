@@ -39,7 +39,7 @@ html {
 }
 
 .btn-primary {
-  @apply py-3 rounded-xl bg-(--color-secondary) text-(--color-text-alt) font-bold text-lg hover:bg-(--color-secondary-hover) transition-all hover:scale-[1.02] hover:cursor-pointer;
+  @apply py-3 px-4 rounded-xl bg-(--color-secondary) text-(--color-text-alt) font-bold text-lg hover:bg-(--color-secondary-hover) transition-all hover:scale-[1.02] hover:cursor-pointer;
 }
 
 .btn-secondary {

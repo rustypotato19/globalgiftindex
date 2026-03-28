@@ -1,192 +1,222 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, BadgeInfo, CircleUser } from "lucide-react";
-import LoginContext from "../../utils/contexts/login-context/LoginContext";
-import MyError from "../../utils/error/Error";
+import { X } from "lucide-react";
+import { useLoginContext } from "../../utils/contexts/login-context/useLoginContext";
+import {
+  isValidDate,
+  isValidEmail,
+  isValidPassword,
+  isNonEmptyString,
+} from "../../utils/validators";
 
 type Step = 1 | 2 | 3;
 
-function formatTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-
-  const pad = (n: number) => n.toString().padStart(2, "0");
-
-  return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
-}
-
 export default function Signup() {
-  const context = useContext(LoginContext);
-
+  const context = useLoginContext();
   const [step, setStep] = useState<Step>(1);
 
-  // Step 1 state
+  // Step 1
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [dob, setDob] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // Step 2 state
+  // Step 2
   const [code, setCode] = useState("");
-  const [timer, setTimer] = useState(299);
+  const [timer, setTimer] = useState(120);
 
-  // Timer countdown
+  // countdown
   useEffect(() => {
     if (step !== 2) return;
-
     if (timer <= 0) return;
-    const interval = setInterval(() => {
-      setTimer((t) => t - 1);
-    }, 1000);
 
+    const interval = setInterval(() => setTimer((t) => t - 1), 1000);
     return () => clearInterval(interval);
   }, [step, timer]);
 
-  function nextStep() {
-    setStep((s) => (s + 1) as Step);
-  }
+  // -------------------------
+  // STEP 1: REGISTER + SEND CODE
+  // -------------------------
+  const submitStep1 = async () => {
+    if (loading) return;
 
-  function prevToLogin() {
-    context?.setLoginOrSignup("login");
-  }
+    if (!isValidEmail(email)) return setError("Invalid email");
+    if (!isNonEmptyString(fullName)) return setError("Full name required");
+    if (!isValidDate(dob)) return setError("Invalid date of birth");
+    if (!isValidPassword(password)) return setError("Weak password");
+    if (password !== confirm) return setError("Passwords do not match");
 
-  if (!context) {
-    return <MyError ErrorMessage="Context could not be initialised" />;
-  }
+    setError(null);
+    setLoading(true);
+
+    try {
+      // 1. Register user
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, fullName, dob, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || "Signup failed");
+        return;
+      }
+
+      // 2. Send verification code
+      const codeRes = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const codeData = await codeRes.json();
+      if (!codeRes.ok) {
+        setError(codeData.message || "Failed to send code");
+        return;
+      }
+
+      setStep(2);
+      setTimer(300);
+    } catch (err) {
+      console.error(err);
+      setError("Server error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // -------------------------
+  // STEP 2: VERIFY CODE
+  // -------------------------
+  const submitStep2 = async () => {
+    if (!isNonEmptyString(code)) return setError("Verification code required");
+
+    try {
+      const res = await fetch("/api/auth/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        return setError(data.message || "Verification failed");
+      }
+
+      setStep(3);
+    } catch (err) {
+      console.error(err);
+      setError("Server error");
+    }
+  };
+
+  // -------------------------
+  // RESEND CODE
+  // -------------------------
+  const resendCode = async () => {
+    try {
+      setError(null);
+
+      const res = await fetch("/api/auth/resend-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        return setError(data.message || "Failed to resend code");
+      }
+
+      setTimer(300);
+    } catch (err) {
+      console.error(err);
+      setError("Server error");
+    }
+  };
+
+  const finishSignup = () => {
+    context.setShowLoginModal(false);
+  };
+
+  const prevToLogin = () => context.setLoginOrSignup("login");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <motion.div
-        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={() => context.setShowLoginModal(false)}
-      />
-
-      {/* Modal */}
-      <motion.div
-        className="relative w-full max-w-full mx-6 sm:mx-0 sm:max-w-xl h-fit min-h-150 bg-(--color-bg) border-6 border-(--color-secondary)/70 rounded-4xl shadow-2xl p-10 flex flex-col"
-        initial={{ opacity: 0, scale: 0.9, y: -20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
-      >
-        {/* Close */}
+    <div className="fixed inset-0 z-10 flex items-center justify-center">
+      <motion.div className="relative w-full max-w-md bg-(--color-bg) p-8 rounded-2xl shadow-xl">
         <button
           onClick={() => context.setShowLoginModal(false)}
-          className="absolute top-5 right-5 p-2 rounded-full hover:bg-(--color-secondary)/5 transition"
+          className="absolute top-4 right-4 p-2 rounded-full hover:bg-(--color-secondary)/10"
         >
-          <X
-            size={32}
-            className="text-(--color-text)/70 hover:cursor-pointer"
-          />
+          <X size={24} className="text-(--color-text) hover:cursor-pointer" />
         </button>
 
-        {/* Title */}
-        <h1 className="text-5xl font-bold text-center mb-6">Sign Up</h1>
+        <h2 className="text-3xl font-bold text-center mb-4">Sign Up</h2>
+
+        {error && <p className="text-red-600 text-center mb-2">{error}</p>}
 
         <AnimatePresence mode="wait">
-          {/* ================= STEP 1 ================= */}
+          {/* STEP 1 */}
           {step === 1 && (
             <motion.div
               key="step1"
-              initial={{ opacity: 0 }}
+              className="flex flex-col gap-4"
+              initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              className="flex flex-col gap-6 flex-1"
+              exit={{ opacity: 0, x: 20 }}
             >
-              <div className="w-full flex items-center justify-between">
-                <p className="text-sm text-(--color-text)/60">
-                  <span className="font-bold text-red-700">*</span> required
-                  field{" "}
-                </p>
-                <button className="text-sm text-(--color-text)/60 flex items-center justify-center gap-2">
-                  <p>
-                    <BadgeInfo size={20} />
-                  </p>
-                  <p className="max-w-40 text-left text-xs">
-                    Click here to find out why we ask for certain information
-                  </p>
-                </button>
-              </div>
-              <div className="flex flex-col items-start justify-center gap-1">
-                <label className="ml-2">
-                  Email <span className="font-bold text-red-700">*</span>
-                </label>
-                <input
-                  placeholder="janedoe@email.org"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input"
-                />
-              </div>
+              <input
+                className="input"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <input
+                className="input"
+                placeholder="Full Name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+              <input
+                className="input"
+                type="date"
+                value={dob}
+                onChange={(e) => setDob(e.target.value)}
+              />
+              <input
+                className="input"
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <input
+                className="input"
+                type="password"
+                placeholder="Confirm Password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+              />
 
-              <div className="flex flex-col items-start justify-center gap-1">
-                <label className="ml-2">
-                  Full Name <span className="font-bold text-red-700">*</span>
-                </label>
-                <input
-                  placeholder="Jane Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="input"
-                />
-              </div>
-
-              <div className="flex flex-col items-start justify-center gap-1">
-                <label className="ml-2">
-                  Date of Birth{" "}
-                  <span className="font-bold text-red-700">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={dob}
-                  onChange={(e) => setDob(e.target.value)}
-                  className="input hover:cursor-pointer"
-                />
-              </div>
-
-              <div className="flex flex-col items-start justify-center gap-1">
-                <label className="ml-2">
-                  Create Password{" "}
-                  <span className="font-bold text-red-700">*</span>
-                </label>
-                <input
-                  type="password"
-                  placeholder="SuperSecurePassword123"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input"
-                />
-              </div>
-
-              <div className="flex flex-col items-start justify-center gap-1">
-                <label className="ml-2">
-                  Confirm Password{" "}
-                  <span className="font-bold text-red-700">*</span>
-                </label>
-                <input
-                  type="password"
-                  placeholder="SuperSecurePassword123"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  className="input"
-                />
-              </div>
-
-              <button onClick={nextStep} className="btn-primary mt-4">
-                Sign Up
+              <button
+                onClick={submitStep1}
+                disabled={loading}
+                className="btn-primary"
+              >
+                {loading ? "Creating account..." : "Continue"}
               </button>
 
-              <p className="text-sm text-center font-bold">
-                Already a member?{" "}
+              <p className="text-sm text-center">
+                Already have an account?{" "}
                 <span
                   onClick={prevToLogin}
-                  className="underline cursor-pointer text-(--color-hyperlink) hover:text-(--color-hyperlink-hover)"
+                  className="underline cursor-pointer"
                 >
                   Login
                 </span>
@@ -194,86 +224,58 @@ export default function Signup() {
             </motion.div>
           )}
 
-          {/* ================= STEP 2 ================= */}
+          {/* STEP 2 */}
           {step === 2 && (
             <motion.div
               key="step2"
-              initial={{ opacity: 0, x: 40 }}
+              className="flex flex-col gap-4"
+              initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              className="flex flex-col gap-6 flex-1"
+              exit={{ opacity: 0, x: -20 }}
             >
-              <h2 className="text-2xl font-semibold text-center">
-                Verify Email
-              </h2>
+              <p className="text-center">
+                Enter verification code sent to {email}
+              </p>
 
               <input
-                placeholder="Enter code"
+                className="input text-center"
+                placeholder="Verification code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                className="input text-center text-xl tracking-widest"
               />
 
               <p className="text-sm text-center text-(--color-text)/70">
-                We have sent a verification code to <b>{email}</b>.
-              </p>
-
-              <p className="text-xs text-center text-(--color-text)/60">
-                The code may take up to 5 minutes to arrive, if you don't
-                receive it in this time, make sure you typed in your email
-                correctly, otherwise click below to request a new code.
+                Time left: {Math.floor(timer / 60)}:
+                {String(timer % 60).padStart(2, "0")}
               </p>
 
               <button
                 disabled={timer > 0}
-                onClick={() => setTimer(59)}
-                className="text-sm underline disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed hover:cursor-pointer"
+                onClick={resendCode}
+                className="underline disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Request New Code: {formatTime(timer)}
+                Resend Code
               </button>
 
-              <button onClick={nextStep} className="btn-primary">
-                Continue
+              <button onClick={submitStep2} className="btn-primary">
+                Verify
               </button>
             </motion.div>
           )}
 
-          {/* ================= STEP 3 ================= */}
+          {/* STEP 3 */}
           {step === 3 && (
             <motion.div
               key="step3"
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              className="flex flex-col items-center justify-center gap-6 flex-1"
+              className="flex flex-col gap-4 items-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             >
-              <div className="w-32 h-32 rounded-full bg-(--color-secondary)/20 flex items-center justify-center">
-                <CircleUser size={125} strokeWidth={1.3} />
-              </div>
-
-              <button className="underline">
-                Upload a new profile picture
+              <p className="text-center">Signup complete!</p>
+              <button onClick={finishSignup} className="btn-primary">
+                Finish
               </button>
-
-              <p className="text-sm text-(--color-text)/60">
-                (you can do this later)
-              </p>
-
-              <div className="flex flex-col gap-1 w-50">
-                <button
-                  onClick={() => context.setShowLoginModal(false)}
-                  className="italic hover:cursor-pointer hover:underline"
-                >
-                  Skip
-                </button>
-
-                <button
-                  onClick={() => context.setShowLoginModal(false)}
-                  className="btn-primary"
-                >
-                  Finish
-                </button>
-              </div>
             </motion.div>
           )}
         </AnimatePresence>

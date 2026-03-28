@@ -1,105 +1,125 @@
-import { X } from "lucide-react";
-import { useContext, useEffect } from "react";
-import LoginContext from "../../utils/contexts/login-context/LoginContext";
-import MyError from "../../utils/error/Error";
+import { useState } from "react";
 import { motion } from "framer-motion";
+import { X } from "lucide-react";
+import { useLoginContext } from "../../utils/contexts/login-context/useLoginContext";
+import { isValidEmail, isNonEmptyString } from "../../utils/validators";
+import type { LoginResponse } from "../../utils/types/primary-types";
 
 export default function Login() {
-  const context = useContext(LoginContext);
+  const context = useLoginContext();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // ESC to close
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") context?.setShowLoginModal(false);
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [context]);
+  const submitLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (!context) {
-    return <MyError ErrorMessage="Context could not be initialised" />;
-  }
+    if (loading) return;
+
+    if (!isValidEmail(email)) {
+      setError("Invalid email address");
+      return;
+    }
+    if (!isNonEmptyString(password)) {
+      setError("Password cannot be empty");
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      let data: LoginResponse | null = null;
+      try {
+        data = await res.json();
+      } catch (err) {
+        console.warn("Response was not JSON", err);
+      }
+
+      if (!res.ok) {
+        setError(data?.message || "Login failed");
+        return;
+      }
+
+      if (!data?.user?.id) {
+        setError("User ID undefined");
+        return;
+      }
+
+      context.setUser(data?.user?.id);
+      context.setShowLoginModal(false);
+    } catch (err) {
+      console.error(err);
+      setError("Unable to reach server");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
       <motion.div
         className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+        onClick={() => context.setShowLoginModal(false)}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       />
 
       <motion.div
-        className="absolute inset-0"
-        onClick={() => context.setShowLoginModal(false)}
-      />
-
-      {/* Modal */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: -20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
-        className="relative flex flex-col justify-between w-full max-w-xl h-[70vh] min-h-125 bg-(--color-bg) border-6 border-(--color-secondary)/70 shadow-2xl rounded-4xl p-10"
+        className="relative flex flex-col w-full max-w-md bg-(--color-bg) p-8 rounded-2xl shadow-xl"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
       >
-        {/* Close button */}
         <button
           onClick={() => context.setShowLoginModal(false)}
-          className="absolute top-5 right-5 p-2 rounded-full hover:bg-(--color-secondary)/5 transition group hover:scale-110 active:scale-95"
+          className="absolute top-4 right-4 p-2 rounded-full hover:bg-(--color-secondary)/10"
         >
-          <X
-            size={36}
-            className="text-(--color-text)/70 hover:cursor-pointer"
-          />
+          <X size={24} className="text-(--color-text)" />
         </button>
 
-        {/* Title */}
-        <h1 className="text-6xl font-extrabold text-(--color-text) text-center tracking-tight">
-          Login
-        </h1>
+        <h2 className="text-3xl font-bold text-center mb-4">Login</h2>
 
-        {/* Form */}
-        <form className="flex flex-col gap-6 w-full max-w-md mx-auto">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-(--color-text)/80">
-              Email
-            </label>
-            <input
-              type="email"
-              placeholder="janedoe@gmail.com"
-              className="w-full px-4 py-3 rounded-xl border border-(--color-secondary)/40 bg-transparent text-(--color-text) placeholder:text-(--color-text)/40 focus:outline-none focus:ring-2 focus:ring-(--color-secondary)"
-            />
-          </div>
+        {error && <p className="text-red-600 text-center mb-2">{error}</p>}
 
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-(--color-text)/80">
-              Password
-            </label>
-            <input
-              type="password"
-              placeholder="••••••••••••"
-              className="w-full px-4 py-3 rounded-xl border border-(--color-secondary)/40 bg-transparent text-(--color-text) placeholder:text-(--color-text)/40 focus:outline-none focus:ring-2 focus:ring-(--color-secondary)"
-            />
-          </div>
+        <form className="flex flex-col gap-4" onSubmit={submitLogin}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="input"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="input"
+          />
 
-          <button type="submit" className="btn-primary">
-            Login
+          <button type="submit" disabled={loading} className="btn-primary">
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
-        {/* Footer */}
-        <div className="text-center text-sm text-(--color-text)/60 font-bold">
+        <p className="text-sm text-center mt-2">
           Don't have an account?{" "}
-          <button
-            onClick={() => {
-              context.setLoginOrSignup("signup");
-            }}
-            className="text-(--color-hyperlink) hover:text-(--color-hyperlink-hover) cursor-pointer hover:underline"
+          <span
+            className="underline cursor-pointer"
+            onClick={() => context.setLoginOrSignup("signup")}
           >
             Sign up
-          </button>
-        </div>
+          </span>
+        </p>
       </motion.div>
     </div>
   );

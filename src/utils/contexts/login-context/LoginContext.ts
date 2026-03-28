@@ -17,6 +17,9 @@ export type LoginContextType = {
 
   loginOrSignup: loginType;
   setLoginOrSignup: (lt: loginType) => void;
+
+  user: string;
+  setUser: (user: string) => void;
 };
 
 const LoginContext = createContext<LoginContextType | null>(null);
