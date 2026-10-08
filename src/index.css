@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  --color-primary: #ffde59;
+  --color-secondary: #222222;
+
+  --color-primary-hover: #ffd21d;
+  --color-secondary-hover: #5f5f5f;
+
+  --color-bg: #ffffff;
+  --color-text: #222222;
+  --color-bg-alt: #222222;
+  --color-text-alt: #ffffff;
+
+  --color-hyperlink: #422dff;
+  --color-hyperlink-hover: #9b90ff;
+}
+
+button:hover {
+  cursor: pointer;
+  transition: all;
+  transition-duration: 150ms;
+}
